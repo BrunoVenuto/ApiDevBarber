@@ -6,18 +6,19 @@ use Illuminate\Http\Request;
 use Illumiate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use App\Models\Barber;
 
 class AuthController extends Controller
 {
     public function __construct() {
-        $this->middleware('auth:api', ['except' => ['create', 'login']]);
+        $this->middleware('auth:api', ['except' => ['create', 'login', 'unauthorized']]);
     }
 
     public function create(Request $request) {
         $array = ['error'=>''];
 
         $validator = Validator::make($request->all(), [
-           'name' => 'reuired',
+           'name' => 'required',
            'email' => 'required|email',
            'password' => 'required' 
         ]);
@@ -27,11 +28,11 @@ class AuthController extends Controller
             $email = $request->input('email');
             $password = $request->input('password');
 
-            $emailExists = User::where('email', $email)->count();
-            if(emailExists === 0) {
+            $emailExists = User::where('email', $email)->count();//User
+            if($emailExists === 0) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
 
-                $newUser = new User();
+                $newUser = new User();//User
                 $newUser->name = $name;
                 $newUser->email = $email;
                 $newUser->password = $hash;
@@ -48,6 +49,7 @@ class AuthController extends Controller
                 }
 
                 $info = auth()->user();
+                $info['avatar'] = url('media/avatars/'.$info['avatar']);
                 $array['data'] = $info;
                 $array['token'] = $token;
             } else {
@@ -60,5 +62,53 @@ class AuthController extends Controller
         }
 
         return $array;
+    }
+
+    public function login(Request $request) {
+        $array = ['error' =>''];
+
+        $email = $request->input('email');
+        $password = $request->input('password');
+
+        $token = auth()->attempt([
+            'email' => $email,
+            'password' => $password
+        ]);
+
+        if(!$token) {
+            $array['error'] = 'Usuário e/ou senha errados!';
+            return $array;
+        }
+
+        $info = auth()->user();
+        $info['avatar'] = url('media/avatars/'.$info['avatar']);
+        $array['data'] = $info;
+        $array['token'] = $token;
+
+        return $array;
+    }
+
+    public function logout() {
+        auth()->logout();
+        return ['error'=>''];
+    }
+
+    public function refresh() {
+        $array = ['error'=>''];
+
+        $token = auth()->refresh();
+
+        $info = auth()->user();
+        $info['avatar'] = url('media/avatars/'.$info['avatar']);
+        $array['data'] = $info;
+        $array['token'] = $token;
+
+        return $array;
+    }
+
+    public function unauthorized() {
+        return response()->json([
+            'error' => 'Não autorizado'
+        ], 401);
     }
 }
